@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Juego de Memoria - Números</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --sky1: #7fd6ff;
+        --sky2: #c9f0ff;
+        --sun: #ffd23f;
+        --berry: #ff5d8f;
+        --grape: #7c4dff;
+        --ink: #2b2d5b;
+        --card-size: clamp(64px, 17vw, 130px);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Baloo 2", "Comic Sans MS", "Trebuchet MS", sans-serif;
+        color: var(--ink);
+        text-align: center;
+        background:
+            radial-gradient(circle at 12% 18%, #fff 0 38px, transparent 39px),
+            radial-gradient(circle at 18% 18%, #fff 0 28px, transparent 29px),
+            radial-gradient(circle at 86% 30%, #fff 0 34px, transparent 35px),
+            radial-gradient(circle at 92% 30%, #fff 0 24px, transparent 25px),
+            linear-gradient(180deg, var(--sky1), var(--sky2));
+        background-attachment: fixed;
+        padding: 12px 12px 32px;
+        overflow-x: hidden;
+    }
+    h1 {
+        margin: 6px 0 4px;
+        font-size: clamp(1.7rem, 6vw, 3.2rem);
+        font-weight: 800;
+        color: #fff;
+        text-shadow: 0 4px 0 var(--grape), 0 8px 12px rgba(0,0,0,.18);
+        letter-spacing: 1px;
+    }
+    .subtitle { margin: 0 0 10px; font-size: clamp(1rem, 3.4vw, 1.4rem); font-weight: 600; }
+
+    .hud {
+        display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+        margin: 0 auto 14px; max-width: 720px;
+    }
+    .pill {
+        background: #fff; border-radius: 999px; padding: 4px 18px;
+        font-size: clamp(1rem, 3.6vw, 1.4rem); font-weight: 800;
+        box-shadow: 0 4px 0 rgba(43,45,91,.2);
+    }
+    .pill b { color: var(--berry); }
+    .stars { letter-spacing: 3px; }
+    .stars .off { filter: grayscale(1); opacity: .35; }
+
+    .progress {
+        width: min(420px, 90%); height: 16px; margin: 0 auto 16px;
+        background: rgba(255,255,255,.7); border-radius: 999px; overflow: hidden;
+        border: 3px solid #fff;
+    }
+    .progress > div {
+        height: 100%; width: 0; border-radius: 999px;
+        background: linear-gradient(90deg, var(--sun), var(--berry));
+        transition: width .5s cubic-bezier(.3,1.6,.5,1);
+    }
+
+    /* Tablero */
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(5, var(--card-size));
+        gap: clamp(8px, 2.2vw, 20px);
+        justify-content: center;
+        margin: 0 auto;
+    }
+    @media (max-width: 420px) {
+        .grid { grid-template-columns: repeat(4, var(--card-size)); }
+        :root { --card-size: 21vw; }
+    }
+
+    .card {
+        width: var(--card-size); height: var(--card-size);
+        perspective: 700px; cursor: pointer;
+        animation: pop .45s backwards;
+    }
+    .card:nth-child(odd) { animation-delay: .05s; }
+    .card:nth-child(3n) { animation-delay: .12s; }
+    @keyframes pop { from { transform: scale(0) rotate(-20deg); } }
+    .inner {
+        position: relative; width: 100%; height: 100%;
+        transition: transform .5s cubic-bezier(.3,1.4,.5,1);
+        transform-style: preserve-3d;
+    }
+    .card.revealed .inner, .card.matched .inner { transform: rotateY(180deg); }
+    .face {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 22%;
+        backface-visibility: hidden; -webkit-backface-visibility: hidden;
+        border: 4px solid #fff;
+        box-shadow: 0 6px 0 rgba(43,45,91,.25);
+    }
+    .front {
+        font-size: calc(var(--card-size) * .5);
+        background:
+            radial-gradient(circle at 30% 30%, rgba(255,255,255,.45) 0 12%, transparent 13%),
+            linear-gradient(145deg, var(--sun), #ff9f1c);
+    }
+    .front::after { content: "?"; font-weight: 800; color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,.2); }
+    .card:hover .front { filter: brightness(1.08); }
+    .card:active .inner { transform: scale(.94); }
+    .card.revealed:active .inner, .card.matched:active .inner { transform: rotateY(180deg); }
+    .back {
+        transform: rotateY(180deg);
+        font-size: calc(var(--card-size) * .6);
+        font-weight: 800; color: #fff;
+        background: var(--c, var(--grape));
+        text-shadow: 0 4px 0 rgba(0,0,0,.2);
+    }
+    .card.matched { cursor: default; animation: happy .6s; }
+    .card.matched .back { box-shadow: 0 0 0 4px #fff, 0 0 22px 6px var(--sun); }
+    @keyframes happy {
+        30% { transform: scale(1.18) rotate(-6deg); }
+        60% { transform: scale(1.1) rotate(6deg); }
+    }
+    .card.wrong { animation: shake .4s; }
+    @keyframes shake {
+        25% { transform: translateX(-8px); } 75% { transform: translateX(8px); }
+    }
+
+    .controls { margin-top: 22px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    button {
+        font: inherit; font-weight: 800; font-size: clamp(1rem, 3.6vw, 1.3rem);
+        color: #fff; background: var(--grape);
+        border: 4px solid #fff; border-radius: 999px;
+        padding: 8px 22px; cursor: pointer;
+        box-shadow: 0 6px 0 #4a2bb8;
+        transition: transform .1s, box-shadow .1s;
+    }
+    button.alt { background: var(--berry); box-shadow: 0 6px 0 #c23468; }
+    button:hover { transform: translateY(-2px); }
+    button:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,.3); }
+    button:focus-visible, .card:focus-visible { outline: 4px solid var(--ink); outline-offset: 3px; }
+
+    /* Mensaje de nivel */
+    .banner {
+        position: fixed; inset: 0; display: none;
+        align-items: center; justify-content: center; z-index: 10;
+        background: rgba(43,45,91,.45);
+    }
+    .banner.show { display: flex; }
+    .banner div {
+        background: #fff; border-radius: 32px; padding: 26px 34px; max-width: 88vw;
+        font-size: clamp(1.5rem, 6vw, 2.6rem); font-weight: 800;
+        box-shadow: 0 10px 0 var(--grape);
+        animation: pop .5s;
+    }
+    .banner small { display: block; font-size: .5em; font-weight: 600; margin-top: 6px; }
+
+    .confetti {
+        position: fixed; top: -20px; width: 12px; height: 18px; z-index: 11;
+        pointer-events: none; animation: fall linear forwards;
+    }
+    @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+</style>
+</head>
+<body>
+    <h1>🧠 Juego de Memoria</h1>
+    <p class="subtitle">¡Encuentra los números iguales!</p>
+
+    <div class="hud">
+        <div class="pill">Nivel <b id="level">1</b></div>
+        <div class="pill">Intentos <b id="attempts">0</b></div>
+        <div class="pill stars" id="stars" aria-label="Estrellas">⭐⭐⭐</div>
+    </div>
+    <div class="progress" aria-hidden="true"><div id="bar"></div></div>
+
+    <div class="grid" id="gameBoard"></div>
+
+    <div class="controls">
+        <button id="voiceBtn" onclick="toggleSpeech()">🔊 Voz: Sí</button>
+        <button class="alt" onclick="loadLevel()">🔄 Reiniciar</button>
+    </div>
+
+    <div class="banner" id="banner"><div id="bannerText"></div></div>
+
+    <script>
+        let level = 1;
+        let attempts = 0;
+        let matches = 0;
+        let locked = false;
+        let speechEnabled = true;
+        let firstCard = null, secondCard = null;
+
+        const levelNumbers = [
+            [1, 2, 3, 4, 5],
+            [6, 7, 8, 9, 10],
+            [11, 12, 13, 14, 15],
+            [16, 17, 18, 19, 20]
+        ];
+        const colors = ["#ff5d8f", "#7c4dff", "#00b894", "#ff7a2f", "#2d9cff"];
+
+        const gameBoard = document.getElementById("gameBoard");
+        const attemptsCounter = document.getElementById("attempts");
+        const levelDisplay = document.getElementById("level");
+        const bar = document.getElementById("bar");
+        const starsEl = document.getElementById("stars");
+        const banner = document.getElementById("banner");
+        const bannerText = document.getElementById("bannerText");
+
+        /* Sonidos generados (no necesitan archivos mp3) */
+        let audioCtx;
+        function beep(freqs, dur = 0.14) {
+            try {
+                audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+                freqs.forEach((f, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.type = "triangle";
+                    o.frequency.value = f;
+                    const t = audioCtx.currentTime + i * dur;
+                    g.gain.setValueAtTime(0.0001, t);
+                    g.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+                    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+                    o.connect(g).connect(audioCtx.destination);
+                    o.start(t); o.stop(t + dur);
+                });
+            } catch (e) {}
+        }
+
+        function playNumberSound(number) {
+            if (speechEnabled && "speechSynthesis" in window) {
+                speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(String(number));
+                u.lang = "es-ES";
+                u.rate = 0.9;
+                u.pitch = 1.2;
+                speechSynthesis.speak(u);
+            }
+        }
+
+        function toggleSpeech() {
+            speechEnabled = !speechEnabled;
+            document.getElementById("voiceBtn").textContent =
+                speechEnabled ? "🔊 Voz: Sí" : "🔇 Voz: No";
+            if (!speechEnabled && "speechSynthesis" in window) speechSynthesis.cancel();
+        }
+
+        function updateStars() {
+            const lost = Math.min(2, Math.floor(Math.max(0, attempts - 7) / 4));
+            const total = 3 - lost;
+            starsEl.innerHTML = "⭐".repeat(total) + '<span class="off">' + "⭐".repeat(3 - total) + "</span>";
+        }
+
+        function loadLevel() {
+            gameBoard.innerHTML = "";
+            attempts = 0; matches = 0; locked = false;
+            firstCard = secondCard = null;
+            attemptsCounter.textContent = attempts;
+            levelDisplay.textContent = level;
+            bar.style.width = "0%";
+            updateStars();
+
+            const numbers = levelNumbers[level - 1];
+            const cards = [...numbers, ...numbers].sort(() => Math.random() - 0.5);
+
+            cards.forEach(value => {
+                const card = document.createElement("div");
+                card.className = "card";
+                card.dataset.value = value;
+                card.tabIndex = 0;
+                card.setAttribute("role", "button");
+                card.setAttribute("aria-label", "Carta");
+                card.innerHTML =
+                    '<div class="inner">' +
+                    '<div class="face front"></div>' +
+                    '<div class="face back" style="--c:' + colors[(value - 1) % colors.length] + '">' + value + '</div>' +
+                    '</div>';
+                card.addEventListener("click", () => flipCard(card));
+                card.addEventListener("keydown", e => {
+                    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flipCard(card); }
+                });
+                gameBoard.appendChild(card);
+            });
+        }
+
+        function flipCard(card) {
+            if (locked || card.classList.contains("revealed") || card.classList.contains("matched")) return;
+            card.classList.add("revealed");
+            beep([520], 0.08);
+            playNumberSound(card.dataset.value);
+
+            if (!firstCard) {
+                firstCard = card;
+            } else {
+                secondCard = card;
+                locked = true;
+                attempts++;
+                attemptsCounter.textContent = attempts;
+                updateStars();
+                setTimeout(checkMatch, 900);
+            }
+        }
+
+        function checkMatch() {
+            if (firstCard.dataset.value === secondCard.dataset.value) {
+                [firstCard, secondCard].forEach(c => {
+                    c.classList.remove("revealed");
+                    c.classList.add("matched");
+                });
+                matches++;
+                bar.style.width = (matches / levelNumbers[level - 1].length * 100) + "%";
+                beep([660, 880, 1100]);
+            } else {
+                beep([260, 200], 0.16);
+                const a = firstCard, b = secondCard;
+                a.classList.add("wrong"); b.classList.add("wrong");
+                setTimeout(() => {
+                    a.classList.remove("revealed", "wrong");
+                    b.classList.remove("revealed", "wrong");
+                }, 350);
+            }
+            firstCard = secondCard = null;
+            setTimeout(() => { locked = false; }, 400);
+            checkWin();
+        }
+
+        function checkWin() {
+            if (matches === levelNumbers[level - 1].length) {
+                confetti();
+                const last = level === levelNumbers.length;
+                setTimeout(() => {
+                    bannerText.innerHTML = last
+                        ? "🏆 ¡Felicidades!<small>Completaste todos los niveles</small>"
+                        : "🎉 ¡Muy bien!<small>Vamos al nivel " + (level + 1) + "</small>";
+                    banner.classList.add("show");
+                    beep([523, 659, 784, 1047], 0.15);
+                }, 700);
+                setTimeout(() => {
+                    banner.classList.remove("show");
+                    level = last ? 1 : level + 1;
+                    loadLevel();
+                }, last ? 3800 : 3000);
+            }
+        }
+
+        function confetti() {
+            const palette = ["#ff5d8f", "#ffd23f", "#7c4dff", "#00b894", "#2d9cff", "#ff7a2f"];
+            for (let i = 0; i < 70; i++) {
+                const p = document.createElement("div");
+                p.className = "confetti";
+                p.style.left = Math.random() * 100 + "vw";
+                p.style.background = palette[i % palette.length];
+                p.style.animationDuration = 1.8 + Math.random() * 1.8 + "s";
+                p.style.animationDelay = Math.random() * 0.6 + "s";
+                p.style.borderRadius = i % 2 ? "50%" : "3px";
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 4500);
+            }
+        }
+
+        loadLevel();
+    </script>
+</body>
+</html>
